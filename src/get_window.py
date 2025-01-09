@@ -16,8 +16,17 @@ elif this_os == 'Linux':
     from ewmh import EWMH
     import psutil
     import Xlib
+    import subprocess # Used to interact with kdotool in bash
+    import os #
+    
+    if os.environ.get('DESKTOP_SESSION') == 'plasma': #Check wether plasma kde is running.
+        is_plasmawayland = True
+    else:
+        is_plasmawayland = False
     NET_WM_NAME = Xlib.display.Display().intern_atom('_NET_WM_NAME')
-
+    status, _ = subprocess.getstatusoutput("kdotool")
+    has_kdotool = status == 0
+    
 def get_active_window():
     if this_os == 'Windows':
         return win_get_active_window()
@@ -36,51 +45,76 @@ def get_list_of_all_windows():
         return linux_get_list_of_all_windows()
     raise f'Platform {this_os} not supported'
 
-def linux_get_list_of_all_windows():
+def linux_get_list_of_all_windows():  
     ret = set()
     ewmh = EWMH()
-    for window in ewmh.getClientList():
-        try:
-            win_pid = ewmh.getWmPid(window)
-        except TypeError:
-            win_pid = False
-        if win_pid:
-            app = psutil.Process(win_pid).name()
-        else:
-            app = 'Unknown'
-        wm_name = window.get_wm_name()
-        if not wm_name:
-            wm_name = window.get_full_property(NET_WM_NAME, 0).value
-        if not wm_name:
-            wm_name = f'class:{window.get_wm_class()[0]}'
-        if isinstance(wm_name, bytes):
-            wm_name = wm_name.decode('utf-8')
-        ret.add((app, wm_name))
+    if is_plasmawayland and has_kdotool: 
+        for window in list(filter(None, subprocess.check_output(['kdotool', 'search', '.*']).decode().split('\n'))):
+            try:
+                win_pid = int(subprocess.check_output(['kdotool', 'getwindowpid', window]).decode())
+            except TypeError:
+                win_pid = False
+            if win_pid:
+                app = psutil.Process(win_pid).name()
+            else:
+                app = subprocess.check_output(['kdotool', 'getwindowclassname', window]).decode().strip()
+            wm_name = subprocess.check_output(['kdotool','getwindowname',window]).decode().strip()
+            if not wm_name:
+                wm_name = 'Unknown'
+            ret.add((app, wm_name))
+    else:
+        for window in ewmh.getClientList():
+            try:
+                win_pid = ewmh.getWmPid(window)
+            except TypeError:
+                win_pid = False
+            if win_pid:
+                app = psutil.Process(win_pid).name()
+            else:
+                app = subprocess.check_output(['kdotool', 'getwindowclassname', window]).decode().strip()
+            wm_name = window.get_wm_name()
+            if not wm_name:
+                wm_name = window.get_full_property(NET_WM_NAME, 0).value
+            if not wm_name:
+                wm_name = 'class:{}'.format(window.get_wm_class()[0])
+            if isinstance(wm_name, bytes):
+                wm_name = wm_name.decode('utf-8')
+            ret.add((app, wm_name))
     return ret
 
 def linux_get_active_window():
     ret = set()
     ewmh = EWMH()
-    active_window = ewmh.getActiveWindow()
-    if not active_window:
-        return '', ''
-    try:
-        win_pid = ewmh.getWmPid(active_window)
-    except TypeError:
-        win_pid = False
-    except Xlib.error.XResourceError:
-        return '', ''
-    wm_name = active_window.get_wm_name()
+    if is_plasmawayland and has_kdotool:
+        active_window = subprocess.check_output(['kdotool', 'getactivewindow']).decode().strip()
+        if not active_window:
+            return '', ''
+        try:
+            win_pid = int(subprocess.check_output(['kdotool','getwindowpid',active_window]).decode())
+        except TypeError:
+            win_pid = False
+        wm_name = subprocess.check_output(['kdotool', 'getwindowname', active_window])
+    else:
+        active_window = ewmh.getActiveWindow()
+        if not active_window:
+            return '', ''
+        try:
+            win_pid = ewmh.getWmPid(active_window)
+        except TypeError:
+            win_pid = False
+        except Xlib.error.XResourceError:
+            return '', ''
+        wm_name = active_window.get_wm_name()
     if not wm_name:
         wm_name = active_window.get_full_property(NET_WM_NAME, 0).value
     if not wm_name:
-        wm_name = f'class:{active_window.get_wm_class()[0]}'
+        wm_name = 'class:{}'.format(active_window.get_wm_class()[0])
     if isinstance(wm_name, bytes):
         wm_name = wm_name.decode('utf-8')
     if win_pid:
         active_app = psutil.Process(win_pid).name()
     else:
-        return '', wm_name
+        active_app = subprocess.check_output(['kdotool', 'getwindowclassname', active_window]).decode().strip()
     return (active_app, wm_name)
 
 def darwin_get_active_window():

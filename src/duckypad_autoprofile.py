@@ -201,7 +201,7 @@ def next_prof_click():
     buffff[2] = 3
     duckypad_write_with_retry(buffff)
 
-root = Tk()
+root = Tk(className=appname)
 root.title("duckyPad autoswitcher " + THIS_VERSION_NUMBER)
 root.geometry(f"{MAIN_WINDOW_WIDTH}x{MAIN_WINDOW_HEIGHT}")
 root.resizable(width=FALSE, height=FALSE)
@@ -696,7 +696,7 @@ def set_icon():
         current_dir = pathlib.Path(__file__).parent.resolve()
         img_path = os.path.join(current_dir, icon_filename)
         root.iconbitmap(img_path)
-    if 'linux' in sys.platform:
+    if 'linux' in sys.platform or 'darwin' in sys.platform:
         icon_filename = '_icon.png'
         current_dir = pathlib.Path(__file__).parent.resolve()
         img_path = os.path.join(current_dir, icon_filename)
