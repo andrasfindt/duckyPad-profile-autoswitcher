@@ -1,7 +1,5 @@
 import time
 from tkinter import *
-from tkinter import filedialog
-from tkinter import simpledialog
 from tkinter import messagebox
 import urllib.request
 import tkinter.scrolledtext as ScrolledText
@@ -16,6 +14,7 @@ import get_window
 import check_update
 from platformdirs import *
 import subprocess
+import pathlib
 
 def is_root():
     return os.getuid() == 0
@@ -74,6 +73,7 @@ Exits gracefully instead of crashing when not in sudo on macOS
 """
 
 UI_SCALE = float(os.getenv("DUCKYPAD_UI_SCALE", default=1))
+START_MINIMIZED = os.getenv("DUCKYPAD_UI_MINIMIZED", default=1)
 
 def scaled_size(size: int) -> int:
     return int(size * UI_SCALE)
@@ -689,4 +689,24 @@ t1 = threading.Thread(target=t1_worker, daemon=True)
 t1.start()
 
 root.after(WINDOW_CHECK_FREQUENCY_MS, update_current_app_and_title)
+
+def set_icon():
+    if 'win32' in sys.platform:
+        icon_filename = '_icon.ico'
+        current_dir = pathlib.Path(__file__).parent.resolve()
+        img_path = os.path.join(current_dir, icon_filename)
+        root.iconbitmap(img_path)
+    if 'linux' in sys.platform:
+        icon_filename = '_icon.png'
+        current_dir = pathlib.Path(__file__).parent.resolve()
+        img_path = os.path.join(current_dir, icon_filename)
+        icon = PhotoImage(file=img_path)
+        root.iconphoto(True, icon)
+
+root.after(151, update_current_app_and_title)
+if START_MINIMIZED == "1":
+    root.after(0, lambda: root.iconify())
+# root.after(0, get_current_profile)
+root.after(50, lambda: set_icon())
+
 root.mainloop()

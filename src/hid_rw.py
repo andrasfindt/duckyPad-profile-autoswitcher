@@ -8,6 +8,7 @@ h = hid.device()
 
 def duckypad_init():
     duckypad_path = get_duckypad_path()
+    print(duckypad_path)
     if duckypad_path is None:
         return False
     try:
@@ -78,3 +79,4 @@ def duckypad_hid_write(hid_buf_64b):
         raise OSError('duckyPad write error')
     return result
 
+duckypad_init()
